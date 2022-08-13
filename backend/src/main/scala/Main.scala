@@ -14,17 +14,16 @@ object Main extends ZIOAppDefault {
       Server.paranoidLeakDetection ++
       Server.app(getTodoHttp ++ helloHttp)
 
-  val run = ZIOAppArgs.getArgs.flatMap { args =>
-    val nThreads: Int = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+  val run = for {
+    args <- ZIOAppArgs.getArgs
+    nThreads = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
 
-    server.make
-      .flatMap(start =>
-        Console.printLine(s"Server started on port ${start.port}")
-
-          // Ensures the server doesn't die after printing
-          *> ZIO.never,
-      )
-      .provide(ServerChannelFactory.auto, EventLoopGroup.auto(nThreads), Scope.default)
-  }
+    prog = for {
+      start <- server.make
+      _ <- Console.printLine(s"Server started on port ${start.port}")
+      _ <- ZIO.never
+    } yield ()
+    _ <- prog.provide(ServerChannelFactory.auto, EventLoopGroup.auto(nThreads), Scope.default)
+  } yield ()
 
 }
