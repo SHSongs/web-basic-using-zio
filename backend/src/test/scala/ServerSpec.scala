@@ -1,7 +1,9 @@
 import Main.hello
 import sttp.client3._
+import sttp.client3.httpclient.zio.HttpClientZioBackend
 import sttp.tapir.client.sttp.SttpClientInterpreter
 import sttp.tapir.DecodeResult
+import zio.ZIO
 import zio.test._
 
 object ServerSpec extends ZIOSpecDefault {
@@ -24,16 +26,15 @@ object ServerSpec extends ZIOSpecDefault {
         .toRequest(hello, Some(uri"http://localhost:8090"))
         .apply()
 
-      val backend = HttpClientSyncBackend()
-      val response = request.send(backend)
-
-      assertTrue(response.code.code == 200)
-
-      val body = response.body match {
-        case DecodeResult.Value(Right(v)) => Some(v)
-        case _                            => None
-      }
-      assertTrue(body.get == "hello ZIO")
+      for {
+        _ <- ZIO.succeed()
+        backend <- HttpClientZioBackend()
+        response <- backend.send(request)
+        body = response.body match {
+          case DecodeResult.Value(Right(v)) => Some(v)
+          case _                            => None
+        }
+      } yield assertTrue(response.code.code == 200) && assertTrue(body.get == "hello ZIO")
     },
   )
 }
