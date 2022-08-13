@@ -1,18 +1,29 @@
-import sttp.tapir.{endpoint, stringBody}
-import sttp.tapir.server.ziohttp.ZioHttpInterpreter
-import sttp.tapir.ztapir.RichZEndpoint
+import TodoBackend._
 import zio._
-import zhttp.service.Server
+import zhttp.service.{EventLoopGroup, Server}
+import zhttp.service.server.ServerChannelFactory
+
+import scala.util.Try
 
 object Main extends ZIOAppDefault {
-  val hello =
-    endpoint.get
-      .out(stringBody)
 
-  val helloHttp =
-    ZioHttpInterpreter()
-      .toHttp(hello.zServerLogic(_ => ZIO.succeed("hello ZIO")))
+  private val PORT = 8090
 
-  override def run =
-    Server.start(8090, helloHttp)
+  private val server =
+    Server.port(PORT) ++
+      Server.paranoidLeakDetection ++
+      Server.app(getTodoHttp ++ helloHttp)
+
+  val run = for {
+    args <- ZIOAppArgs.getArgs
+    nThreads = args.headOption.flatMap(x => Try(x.toInt).toOption).getOrElse(0)
+
+    prog = for {
+      start <- server.make
+      _ <- Console.printLine(s"Server started on port ${start.port}")
+      _ <- ZIO.never
+    } yield ()
+    _ <- prog.provide(ServerChannelFactory.auto, EventLoopGroup.auto(nThreads), Scope.default)
+  } yield ()
+
 }
