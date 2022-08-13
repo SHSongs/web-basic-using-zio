@@ -1,4 +1,4 @@
-import TodoEndpoint.{getEndpoint, hello}
+import TodoApi.{getEndpoint, hello}
 import sttp.client3._
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import sttp.tapir.client.sttp.SttpClientInterpreter

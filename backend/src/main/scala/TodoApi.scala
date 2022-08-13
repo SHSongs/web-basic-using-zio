@@ -2,7 +2,7 @@ import sttp.tapir.generic.auto._
 import sttp.tapir.json.zio._
 import sttp.tapir.ztapir._
 
-object TodoEndpoint {
+object TodoApi {
   val hello =
     endpoint.get
       .out(stringBody)
