@@ -1,4 +1,4 @@
-import Main.hello
+import TodoEndpoint.{getEndpoint, hello}
 import sttp.client3._
 import sttp.client3.httpclient.zio.HttpClientZioBackend
 import sttp.tapir.client.sttp.SttpClientInterpreter
@@ -27,7 +27,6 @@ object ServerSpec extends ZIOSpecDefault {
         .apply()
 
       for {
-        _ <- ZIO.succeed()
         backend <- HttpClientZioBackend()
         response <- backend.send(request)
         body = response.body match {
@@ -36,5 +35,58 @@ object ServerSpec extends ZIOSpecDefault {
         }
       } yield assertTrue(response.code.code == 200) && assertTrue(body.get == "hello ZIO")
     },
+    test("Retrieve all TODOs") {
+      val request = SttpClientInterpreter()
+        .toRequest(getEndpoint, Some(uri"http://localhost:8090"))
+        .apply()
+
+      for {
+        backend <- HttpClientZioBackend()
+        response <- backend.send(request)
+        body = response.body match {
+          case DecodeResult.Value(Right(v)) => Some(v)
+          case _                            => None
+        }
+      } yield assertTrue(body.get == List(Todo(Some("test"), completed = true, Some("test"), 0)))
+
+    }
   )
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
