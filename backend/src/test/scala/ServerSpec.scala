@@ -1,92 +1,69 @@
 import TodoApi.{getEndpoint, hello}
 import sttp.client3._
 import sttp.client3.httpclient.zio.HttpClientZioBackend
+import sttp.model.Uri
 import sttp.tapir.client.sttp.SttpClientInterpreter
 import sttp.tapir.DecodeResult
-import zio.ZIO
+import zhttp.service.server.ServerChannelFactory
+import zhttp.service.{EventLoopGroup, Server, ServerChannelFactory}
+import zio.{&, ZIO, ZLayer}
 import zio.test._
 
+case class TodoClientConfig(host: Uri)
+
 object ServerSpec extends ZIOSpecDefault {
-  override def spec = suite("server")(
-    test("client") {
-      val request = basicRequest.get(uri"http://localhost:8090/")
-      val backend = HttpClientSyncBackend()
-      val response = request.send(backend)
+  override def spec =
+    suite("server")(
+      test("client with tapir") {
+        for {
+          config <- ZIO.service[TodoClientConfig]
+          request = SttpClientInterpreter()
+            .toRequest(hello, Some(config.host))
+            .apply()
+          backend <- HttpClientZioBackend()
+          response <- backend.send(request)
+          body = response.body match {
+            case DecodeResult.Value(Right(v)) => Some(v)
+            case _                            => None
+          }
+        } yield
+          assertTrue(response.code.code == 200) && assertTrue(
+            body.get == "hello ZIO")
+      },
+      test("Retrieve all TODOs") {
+        for {
+          config <- ZIO.service[TodoClientConfig]
 
-      assertTrue(response.code.code == 200)
-
-      val body = response.body match {
-        case Right(value) => value
-        case Left(_)      => "error"
+          request = SttpClientInterpreter()
+            .toRequest(getEndpoint, Some(config.host))
+            .apply()
+          backend <- HttpClientZioBackend()
+          response <- backend.send(request)
+          body = response.body match {
+            case DecodeResult.Value(Right(v)) => Some(v)
+            case _                            => None
+          }
+        } yield
+          assertTrue(
+            body.get ==
+              List(Todo(Some("test"), completed = true, Some("test"), 0))
+          )
       }
-      assertTrue(body == "hello ZIO")
-    },
-    test("client with tapir") {
-      val request = SttpClientInterpreter()
-        .toRequest(hello, Some(uri"http://localhost:8090"))
-        .apply()
-
-      for {
-        backend <- HttpClientZioBackend()
-        response <- backend.send(request)
-        body = response.body match {
-          case DecodeResult.Value(Right(v)) => Some(v)
-          case _                            => None
+    ).provideSome[EventLoopGroup & ServerChannelFactory](
+        serverApp.project { port =>
+          TodoClientConfig(uri"http://localhost:$port/")
         }
-      } yield assertTrue(response.code.code == 200) && assertTrue(body.get == "hello ZIO")
-    },
-    test("Retrieve all TODOs") {
-      val request = SttpClientInterpreter()
-        .toRequest(getEndpoint, Some(uri"http://localhost:8090"))
-        .apply()
+      )
+      .provideSomeShared(
+        EventLoopGroup.auto(2),
+        ServerChannelFactory.auto
+      )
 
-      for {
-        backend <- HttpClientZioBackend()
-        response <- backend.send(request)
-        body = response.body match {
-          case DecodeResult.Value(Right(v)) => Some(v)
-          case _                            => None
-        }
-      } yield assertTrue(body.get == List(Todo(Some("test"), completed = true, Some("test"), 0)))
-
-    }
-  )
+  lazy val serverApp =
+    ZLayer.scoped(
+      Server(Main.app)
+        .withPort(0)
+        .make
+        .map(_.port)
+    )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

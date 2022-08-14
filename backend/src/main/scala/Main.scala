@@ -9,10 +9,11 @@ object Main extends ZIOAppDefault {
 
   private val PORT = 8090
 
-  private val server =
+  val app = getTodoHttp ++ helloHttp
+  val server =
     Server.port(PORT) ++
       Server.paranoidLeakDetection ++
-      Server.app(getTodoHttp ++ helloHttp)
+      Server.app(app)
 
   val run = for {
     args <- ZIOAppArgs.getArgs
